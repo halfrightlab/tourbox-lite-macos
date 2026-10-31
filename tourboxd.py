@@ -120,7 +120,7 @@ DEFAULT_CONFIG = {
         "K23":           "cmd+v",         # C2
         "K2A":           "escape",        # Tour
         "K0A":           "space",         # 滚轮点击
-        "K37":           "cmd+shift+4",   # 旋钮点击
+        "K37":           "cmd+return",    # 旋钮点击：输入框里换行（回车发送、cmd+回车换行）
         "WHEEL_CW":      "right",
         "WHEEL_CCW":     "left",
         "SCROLL_UP":     "scrollup",

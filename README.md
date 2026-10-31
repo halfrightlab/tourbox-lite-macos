@@ -102,7 +102,7 @@ python3 tourboxd.py       # 无界面
 |---|---|
 | `fn` / `shift` / `cmd` … | 按住 TourBox = 按住该修饰键（「按住说话」就用 `fn`） |
 | `backspace` `return` `space` `escape` `a` `f5` `left` … | 单键，按住会自动连发 |
-| `cmd+shift+4` `cmd+c` | 组合键，按一下就完整触发一次 |
+| `cmd+return` `cmd+shift+4` `cmd+c` | 组合键，按一下就完整触发一次 |
 | `hold:shift+space` | 组合键，按住期间保持按下 |
 | `volumeup` `volumedown` `mute` `playpause` `next` `previous` `brightnessup` `brightnessdown` | 媒体键 |
 | `scrollup` / `scrolldown` | 平滑滚动（滚轮专用） |
@@ -123,7 +123,7 @@ python3 tourboxd.py       # 无界面
 | C1 / C2 | `K22` / `K23` | `cmd+c` / `cmd+v` |
 | Tour | `K2A` | `escape` |
 | 滚轮点击 | `K0A` | `space` |
-| 旋钮点击 | `K37` | `cmd+shift+4` |
+| 旋钮点击 | `K37` | `cmd+return`（输入框里换行：微信、飞书、ChatGPT 等「回车发送」的输入框） |
 | 旋钮 顺/逆 | `WHEEL_CW` / `WHEEL_CCW` | `right` / `left` |
 | 滚轮 上/下 | `SCROLL_UP` / `SCROLL_DOWN` | `scrollup` / `scrolldown` |
 

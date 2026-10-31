@@ -73,6 +73,9 @@
   .pkey.sel{stroke:var(--accent);stroke-width:2.2}
   .pkey.hot{fill:var(--accent)!important;filter:drop-shadow(0 0 10px var(--accent))}
   .dlabel{fill:var(--dev-label);font-size:10px;font-weight:500;pointer-events:none;letter-spacing:.3px}
+  .dlabel.sub{font-size:9px;opacity:.7}
+  .pkey.rim{fill:#121215;stroke:rgba(255,255,255,.07)}
+  .pkey.rim:hover{fill:#1d1d22}
 
   /* 映射列表 */
   .panel{padding:6px 0 10px}
@@ -160,6 +163,7 @@
             fill="url(#bodyGrad)" filter="url(#bodyShadow)"/>
       <path d="M105 21.5 Q62 21.5 53.5 80 L45.5 230" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1.5"/>
 
+      <rect class="pkey rim" data-id="scroll_click" x="80" y="46" width="32" height="72" rx="16"/>
       <rect class="pkey" data-id="scroll_up"   x="86" y="52" width="20" height="30" rx="10"/>
       <rect class="pkey" data-id="scroll_down" x="86" y="82" width="20" height="30" rx="10"/>
       <line x1="90" y1="82" x2="102" y2="82" stroke="#2a2a2f" stroke-width="1" pointer-events="none"/>
@@ -176,6 +180,7 @@
       <circle class="pkey" data-id="short" cx="292" cy="232" r="20"/>
 
       <text class="dlabel" x="96"  y="40"  text-anchor="middle">滚轮</text>
+      <text class="dlabel sub" x="96" y="132" text-anchor="middle">按下</text>
       <text class="dlabel" x="195" y="36"  text-anchor="middle">横键</text>
       <text class="dlabel" x="294" y="38"  text-anchor="middle">C1</text>
       <text class="dlabel" x="348" y="96">C2</text>
@@ -208,7 +213,7 @@
 <datalist id="suggest">
   <option value="fn"><option value="backspace"><option value="return"><option value="space"><option value="escape">
   <option value="tab"><option value="cmd+c"><option value="cmd+v"><option value="cmd+x"><option value="cmd+z">
-  <option value="cmd+shift+z"><option value="cmd+s"><option value="cmd+shift+4"><option value="cmd+tab">
+  <option value="cmd+shift+z"><option value="cmd+s"><option value="cmd+return"><option value="shift+return"><option value="cmd+shift+4"><option value="cmd+tab">
   <option value="left"><option value="right"><option value="up"><option value="down">
   <option value="scrollup"><option value="scrolldown"><option value="volumeup"><option value="volumedown">
   <option value="mute"><option value="playpause"><option value="next"><option value="previous">
@@ -245,6 +250,7 @@ function tagOf(spec){
   const s = spec.toLowerCase();
   if(!s) return '';
   if(s==='fn') return '<span class="tag fn">按住说话</span>';
+  if(s==='cmd+return'||s==='shift+return') return '<span class="tag">换行</span>';
   if(s.startsWith('scroll')) return '<span class="tag">平滑滚动</span>';
   if(s.startsWith('hold:')) return '<span class="tag">按住</span>';
   if(s.startsWith('double:')) return '<span class="tag">双击</span>';
