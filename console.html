@@ -59,7 +59,9 @@
   main{flex:1;display:grid;grid-template-columns:minmax(360px,1fr) minmax(420px,1.15fr);
        gap:20px;padding:20px 24px 28px;max-width:1280px;width:100%;margin:0 auto}
   .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
-  .stage{position:sticky;top:78px;align-self:start;padding:28px 24px 20px;display:flex;flex-direction:column;align-items:center}
+  /* 吸顶只作用在卡片内部，卡片自己撑满第一行，滚到统计区时不会盖上去 */
+  .stage{align-self:stretch}
+  .stage-in{position:sticky;top:78px;padding:28px 24px 20px;display:flex;flex-direction:column;align-items:center}
   .stage svg{width:100%;max-width:470px;height:auto;overflow:visible}
   .stage .hint{margin-top:10px;color:var(--faint);font-size:12px;text-align:center}
   .live{margin-top:14px;min-height:30px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
@@ -121,8 +123,9 @@
 
 
   /* 使用统计 */
-  .stage{grid-row:span 2}
-  .stats{grid-column:2;padding:16px 20px 18px}
+  .stats{grid-column:1 / -1;padding:18px 24px 20px}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:12px 40px}
+  .cols .sub-hd{margin-top:14px}
   .stats-hd{display:flex;align-items:center;gap:10px}
   .stats-hd h2{margin:0;font-size:12px;font-weight:600;color:var(--dim);letter-spacing:.4px}
   .seg{margin-left:auto;display:inline-flex;padding:2px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line)}
@@ -133,7 +136,7 @@
   .num b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
   .num span{font-size:11px;color:var(--faint)}
   .num.tb b{color:var(--accent)}
-  .top{margin-top:10px}
+  .top{margin-top:4px}
   .trow{display:grid;grid-template-columns:22px 150px 1fr 56px;align-items:center;gap:10px;padding:5px 0}
   .trow .rk{font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
   .trow .lb{display:flex;align-items:center;gap:6px;min-width:0}
@@ -147,7 +150,7 @@
   .bar .kb{background:var(--line-2)}
   .bar .tbb{background:var(--accent)}
   .trow .ct{font-size:12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
-  .hours{display:flex;align-items:flex-end;gap:2px;height:46px;margin-top:16px}
+  .hours{display:flex;align-items:flex-end;gap:3px;height:56px;margin-top:8px}
   .hours i{flex:1;background:var(--line-2);border-radius:2px 2px 0 0;min-height:2px}
   .hours i.now{background:var(--accent)}
   .hlab{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px}
@@ -172,8 +175,10 @@
 
   @media (max-width:880px){
     main{grid-template-columns:1fr;padding:16px}
-    .stage{position:static;grid-row:auto}
-    .stats{grid-column:auto}
+    .stage-in{position:static}
+    .stats{padding:16px 18px}
+    .row{grid-template-columns:82px 1fr auto;gap:8px}
+    .cols{grid-template-columns:1fr}
     .nums{grid-template-columns:repeat(2,1fr)}
     .trow{grid-template-columns:18px 136px 1fr 46px}
     .brow{grid-template-columns:64px 110px 1fr 46px}
@@ -191,7 +196,7 @@
 </header>
 
 <main>
-  <section class="card stage">
+  <section class="card stage"><div class="stage-in">
     <svg viewBox="0 0 420 360" id="dev" aria-label="TourBox 设备图">
       <defs>
         <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
@@ -238,7 +243,7 @@
       <text class="dlabel" x="292" y="270" text-anchor="middle">短键</text>
     </svg>
     <div class="live" id="live"><span>按一下设备上的键，这里会显示触发了什么</span></div>
-  </section>
+  </div></section>
 
   <section class="card panel">
     <div id="groups"></div>
@@ -255,6 +260,7 @@
       </div>
       <div class="note">回车保存并立即生效；清空后回车 = 取消映射。旋钮、滚轮转动没有「松开」信号，别映射成 fn 这类按住式按键。</div>
     </details>
+  </section>
 
   <section class="card stats">
     <div class="stats-hd">
@@ -398,7 +404,7 @@ function onKey(d){
 const STATUS = {connected:['已连接','on'], reconnecting:['重连中…','warn'], waiting:['等待设备接入','warn'],
                 busy:['串口被占用 · 请退出 TourBox Console','warn'], starting:['启动中…','']};
 function load(){
-  fetch('/api/state').then(r=>r.json()).then(s=>{
+  return fetch('/api/state').then(r=>r.json()).then(s=>{
     STATE = s; render();
     const [text, cls] = STATUS[s.status] || [s.status, ''];
     document.getElementById('status').className = 'pill ' + cls;
@@ -406,7 +412,7 @@ function load(){
     document.getElementById('port').textContent = s.status==='connected' && s.port ? s.port.replace('/dev/cu.','') : '';
   });
 }
-load();
+const ready = load();
 setInterval(()=>{ if(!document.hidden) load(); }, 15000);
 
 
@@ -456,9 +462,13 @@ function loadStats(){
         <div class="num"><b>${fmt(d.typing)}</b><span>打字</span></div>
         <div class="num tb"><b>${fmt(d.tourbox)}</b><span>其中 TourBox</span></div>
       </div>
-      ${rows ? `<div class="top">${rows}</div>` : '<div class="empty">还没有数据，正常用一会儿电脑再来看</div>'}
-      <div class="sub-hd">TourBox 按键<span>每个实体键用了几次 · 右边是它现在映射的键 · 旋钮按触发次数、滚轮按格计</span></div>
-      <div>${brows}</div>
+      <div class="cols">
+        <div><div class="sub-hd">快捷键排行<span>灰色键盘 · 蓝色 TourBox</span></div>
+          ${rows ? `<div class="top">${rows}</div>` : '<div class="empty">还没有数据，正常用一会儿电脑再来看</div>'}</div>
+        <div><div class="sub-hd">TourBox 按键<span>每个实体键用了几次 · 当前映射 · 旋钮按次、滚轮按格</span></div>
+          <div>${brows}</div></div>
+      </div>
+      <div class="sub-hd">24 小时分布</div>
       <div class="hours">${d.hours.map((n,h)=>`<i class="${statDays===1&&h===nowH?'now':''}" style="height:${n/hmax*100}%" title="${h} 点：${n} 次"></i>`).join('')}</div>
       <div class="hlab"><span>0 点</span><span>6</span><span>12</span><span>18</span><span>23 点</span></div>
       <div class="legend"><span><i style="background:var(--line-2)"></i>键盘</span><span><i style="background:var(--accent)"></i>TourBox</span>
@@ -471,7 +481,7 @@ document.getElementById('seg').addEventListener('click', e=>{
   document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on', x===b));
   loadStats();
 });
-loadStats();
+ready.then(loadStats);    // 实体键列表要用 STATE 里的键位，等它到了再画
 setInterval(()=>{ if(!document.hidden) loadStats(); }, 30000);
 
 const es = new EventSource('/api/events');
