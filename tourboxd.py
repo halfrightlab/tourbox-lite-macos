@@ -26,6 +26,9 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.environ.get("TOURBOX_CONFIG", os.path.join(APP_DIR, "config.json"))
 MAPPING_PATH = os.environ.get("TOURBOX_MAPPING", os.path.join(APP_DIR, "mappings.json"))
 
+# 驱动注入的事件都打上这个标记（kCGEventSourceUserData），按键统计据此区分来源
+INJECT_TAG = 0x70B0C5
+
 # ---------- macOS 虚拟键码 ----------
 # 真实 kVK_* 键码表（macOS 键码非字母序，必须硬编码）
 VK = {
@@ -137,6 +140,7 @@ DEFAULT_CONFIG = {
     "stuck_release_sec": 60,
     "repeat_delay": 0.42,     # 单键按住多久开始连发
     "repeat_interval": 0.032, # 连发间隔
+    "stats": True,            # 按键统计（只记次数，不记内容），见 keystats.py
     "scroll": {
         "click_px": 130,
         "pulses_per_click": 8,
@@ -287,6 +291,7 @@ class Injector:
         ev = Q.CGEventCreateKeyboardEvent(None, vk, down)
         if ev is None:
             return
+        Q.CGEventSetIntegerValueField(ev, Q.kCGEventSourceUserData, INJECT_TAG)
         # 按下修饰键本体时，务必把它的修饰位带上；
         # 否则事件会被系统解读为「该修饰键松开」。
         if down:
@@ -418,8 +423,9 @@ class Hub:
 
     MAX_EVENTS_PER_SEC = 40     # 注入速率上限，防事件风暴打爆系统事件队列
 
-    def __init__(self, port=None):
+    def __init__(self, port=None, stats=None):
         self.fixed_port = port
+        self.stats = stats              # KeyStats；媒体键和滚动不经过键盘事件，由这里直接计数
         self.port = None
         self.ser = None
         self.inj = Injector()
@@ -608,6 +614,8 @@ class Hub:
                 self.wheel_dir = direction
                 self.wheel_n = 0
                 self._commit_click(now)
+                if self.stats:
+                    self.stats.record("scrollup" if direction < 0 else "scrolldown", "tb")
             self.wheel_n += 1
             self.wheel_ts = now
         self.scroll_wake.set()
@@ -800,6 +808,8 @@ class Hub:
             else:
                 self.add_scroll_px(a.px)
         else:
+            if a.kind == "media" and self.stats:
+                self.stats.record(a.spec.lower(), "tb")
             self.inj.tap(a)
 
     def _press(self, name):

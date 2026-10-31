@@ -24,7 +24,8 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from tourboxd import Hub, check_permissions, acquire_single_instance
+from tourboxd import Hub, check_permissions, acquire_single_instance, load_config
+from urllib.parse import urlparse, parse_qs
 
 # 物理按键定义：id -> 中文名，顺序即界面上列表顺序
 PHYSICAL = {
@@ -43,6 +44,7 @@ PHYSICAL = {
 }
 
 HUB = None
+STATS = None
 PORT = 8777
 
 
@@ -95,6 +97,15 @@ class Handler(BaseHTTPRequestHandler):
                 "scroll_stats": HUB.scroll_stats(),
             })
             return
+        if self.path.startswith("/api/stats"):
+            if STATS is None:
+                return self._json({"enabled": False})
+            q = parse_qs(urlparse(self.path).query)
+            try:
+                days = int((q.get("days") or ["1"])[0])
+            except ValueError:
+                days = 1
+            return self._json({"enabled": True, **STATS.query(days)})
         if self.path == "/api/events":
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
@@ -160,7 +171,7 @@ HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "console.ht
 
 
 def main():
-    global HUB, PORT
+    global HUB, STATS, PORT
     ap = argparse.ArgumentParser(description="TourBox 驱动 + 本地控制台")
     ap.add_argument("--port", type=int, default=8777, help="控制台端口")
     ap.add_argument("--serial", help="串口路径，默认按 USB VID 自动识别")
@@ -173,12 +184,18 @@ def main():
     check_permissions()
     _lock = acquire_single_instance()
 
-    HUB = Hub(args.serial)
+    if load_config().get("stats", True):
+        from keystats import KeyStats
+        STATS = KeyStats()
+        STATS.start()
+    HUB = Hub(args.serial, stats=STATS)
     HUB.start()
 
     def on_term(*_):
         # launchd 停止/重启服务时发 SIGTERM：先把按住的键松开再退，免得 fn 残留
         HUB.release_all()
+        if STATS:
+            STATS.flush()
         os._exit(0)
     signal.signal(signal.SIGTERM, on_term)
     print(f"[*] 卡键守护：按住超过 {HUB.STUCK_RELEASE_SEC:g}s 无松开自动释放", flush=True)
@@ -195,6 +212,8 @@ def main():
     except KeyboardInterrupt:
         print("\n[*] 退出")
         HUB.release_all("程序退出")
+        if STATS:
+            STATS.flush()
 
 
 if __name__ == "__main__":

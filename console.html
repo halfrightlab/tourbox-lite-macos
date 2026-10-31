@@ -119,6 +119,42 @@
               border:1px solid var(--line);color:var(--text);font-size:11.5px}
   .note{font-size:11.5px;color:var(--faint);margin:10px 0 4px}
 
+
+  /* 使用统计 */
+  .stage{grid-row:span 2}
+  .stats{grid-column:2;padding:16px 20px 18px}
+  .stats-hd{display:flex;align-items:center;gap:10px}
+  .stats-hd h2{margin:0;font-size:12px;font-weight:600;color:var(--dim);letter-spacing:.4px}
+  .seg{margin-left:auto;display:inline-flex;padding:2px;border-radius:8px;background:var(--surface-2);border:1px solid var(--line)}
+  .seg button{border:0;background:none;padding:3px 10px;border-radius:6px;font-size:12px;color:var(--dim);cursor:pointer}
+  .seg button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0 6px}
+  .num{padding:10px 12px;border-radius:10px;background:var(--surface-2)}
+  .num b{display:block;font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+  .num span{font-size:11px;color:var(--faint)}
+  .num.tb b{color:var(--accent)}
+  .top{margin-top:10px}
+  .trow{display:grid;grid-template-columns:22px 150px 1fr 56px;align-items:center;gap:10px;padding:5px 0}
+  .trow .rk{font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+  .trow .lb{display:flex;align-items:center;gap:6px;min-width:0}
+  .trow .lb kbd{padding:2px 7px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line);
+                font-size:12px;white-space:nowrap}
+  .badge{font-size:10px;padding:1px 6px;border-radius:5px;white-space:nowrap}
+  .badge.on{background:var(--accent-soft);color:var(--accent)}
+  .badge.sug{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .bar{height:8px;border-radius:4px;background:var(--surface-2);overflow:hidden;display:flex}
+  .bar i{display:block;height:100%}
+  .bar .kb{background:var(--line-2)}
+  .bar .tbb{background:var(--accent)}
+  .trow .ct{font-size:12px;text-align:right;font-variant-numeric:tabular-nums;color:var(--dim)}
+  .hours{display:flex;align-items:flex-end;gap:2px;height:46px;margin-top:16px}
+  .hours i{flex:1;background:var(--line-2);border-radius:2px 2px 0 0;min-height:2px}
+  .hours i.now{background:var(--accent)}
+  .hlab{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--faint);margin-top:12px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:0}
+  .empty{padding:22px 0;text-align:center;color:var(--faint);font-size:12px}
+
   /* 提示条 */
   #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;
          padding:9px 16px;border-radius:10px;background:var(--text);color:var(--bg);font-size:12.5px;
@@ -128,7 +164,10 @@
 
   @media (max-width:880px){
     main{grid-template-columns:1fr;padding:16px}
-    .stage{position:static}
+    .stage{position:static;grid-row:auto}
+    .stats{grid-column:auto}
+    .nums{grid-template-columns:repeat(2,1fr)}
+    .trow{grid-template-columns:18px 136px 1fr 46px}
     header{padding:12px 16px}
     .pill .port{display:none}
   }
@@ -207,6 +246,13 @@
       </div>
       <div class="note">回车保存并立即生效；清空后回车 = 取消映射。旋钮、滚轮转动没有「松开」信号，别映射成 fn 这类按住式按键。</div>
     </details>
+
+  <section class="card stats">
+    <div class="stats-hd">
+      <h2>使用统计</h2>
+      <div class="seg" id="seg"><button data-d="1" class="on">今天</button><button data-d="7">7 天</button><button data-d="30">30 天</button></div>
+    </div>
+    <div id="statsBody"><div class="empty">加载中…</div></div>
   </section>
 </main>
 
@@ -353,6 +399,61 @@ function load(){
 }
 load();
 setInterval(()=>{ if(!document.hidden) load(); }, 15000);
+
+
+// ---------- 使用统计 ----------
+let statDays = 1;
+const PRETTY = {cmd:'⌘', shift:'⇧', alt:'⌥', ctrl:'⌃', return:'↩ 回车', backspace:'⌫ 删除', escape:'esc',
+  tab:'⇥ tab', space:'空格', left:'←', right:'→', up:'↑', down:'↓', forwarddelete:'⌦',
+  scrollup:'滚轮 ↑', scrolldown:'滚轮 ↓', fn:'fn 按住说话', pageup:'PgUp', pagedown:'PgDn'};
+function pretty(label){
+  const parts = label.split('+');
+  if(parts.length===1) return PRETTY[label] || label;
+  const key = parts.pop();
+  return parts.map(m=>PRETTY[m]||m).join('') + ((PRETTY[key]||key).split(' ')[0]).toUpperCase();
+}
+const fmt = n => n>=10000 ? (n/10000).toFixed(1)+' 万' : n.toLocaleString();
+function loadStats(){
+  fetch('/api/stats?days='+statDays).then(r=>r.json()).then(d=>{
+    const box = document.getElementById('statsBody');
+    if(!d.enabled){ box.innerHTML = '<div class="empty">统计已关闭（config.json 里 "stats": false）</div>'; return; }
+    if(d.tap_ok===false){ box.innerHTML = '<div class="empty">没有按键监听权限：系统设置 → 隐私与安全性 → 输入监控，勾选驱动用的 python3 后重启驱动</div>'; return; }
+    const mapped = new Set(Object.values((STATE&&STATE.config.map)||{}).map(v=>String(v).toLowerCase()));
+    const items = d.top.filter(x=>x.label!=='typing').slice(0,12);
+    const max = Math.max(1, ...items.map(x=>x.kb+x.tb));
+    let sug = 0;
+    const rows = items.map((x,i)=>{
+      const n = x.kb+x.tb, on = mapped.has(x.label);
+      const badge = on ? '<span class="badge on">已映射</span>'
+        : (x.kb && sug++ < 3 ? '<span class="badge sug" title="常用但 TourBox 上还没有">可映射</span>' : '');
+      return `<div class="trow"><span class="rk">${i+1}</span>
+        <span class="lb" title="${esc(x.label)}"><kbd>${esc(pretty(x.label))}</kbd>${badge}</span>
+        <span class="bar"><i class="kb" style="width:${x.kb/max*100}%"></i><i class="tbb" style="width:${x.tb/max*100}%"></i></span>
+        <span class="ct">${fmt(n)}</span></div>`;
+    }).join('');
+    const hmax = Math.max(1, ...d.hours), nowH = new Date().getHours();
+    box.innerHTML = `
+      <div class="nums">
+        <div class="num"><b>${fmt(d.total)}</b><span>总按键</span></div>
+        <div class="num"><b>${fmt(d.total-d.typing)}</b><span>快捷键 / 功能键</span></div>
+        <div class="num"><b>${fmt(d.typing)}</b><span>打字</span></div>
+        <div class="num tb"><b>${fmt(d.tourbox)}</b><span>其中 TourBox</span></div>
+      </div>
+      ${rows ? `<div class="top">${rows}</div>` : '<div class="empty">还没有数据，正常用一会儿电脑再来看</div>'}
+      <div class="hours">${d.hours.map((n,h)=>`<i class="${statDays===1&&h===nowH?'now':''}" style="height:${n/hmax*100}%" title="${h} 点：${n} 次"></i>`).join('')}</div>
+      <div class="hlab"><span>0 点</span><span>6</span><span>12</span><span>18</span><span>23 点</span></div>
+      <div class="legend"><span><i style="background:var(--line-2)"></i>键盘</span><span><i style="background:var(--accent)"></i>TourBox</span>
+        <span style="margin-left:auto">只记次数；普通打字只算总数，不记具体字母</span></div>`;
+  });
+}
+document.getElementById('seg').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  statDays = +b.dataset.d;
+  document.querySelectorAll('#seg button').forEach(x=>x.classList.toggle('on', x===b));
+  loadStats();
+});
+loadStats();
+setInterval(()=>{ if(!document.hidden) loadStats(); }, 30000);
 
 const es = new EventSource('/api/events');
 es.onmessage = ev=>{
