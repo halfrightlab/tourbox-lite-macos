@@ -133,7 +133,7 @@ python3 tourboxd.py       # 无界面
 |---|---|---|
 | `divider.WHEEL_CW` 等 | 4 | 旋钮每 N 个脉冲触发一次（转一格大约 6–10 个脉冲） |
 | `scroll.click_px` | 130 | 滚轮一格滚多少像素 |
-| `scroll.decay` | 0.06 | 惯性衰减，越小尾巴越长 |
+| `scroll.decay` | 0.12 | 每帧走掉剩余距离的比例：越大起步越快、尾巴越短 |
 | `scroll.boost_max` | 1.8 | 快速连转时的加速倍率上限 |
 | `stuck_release_sec` | 60 | 按住超过多少秒没收到松开就强制释放（防丢包卡键） |
 | `repeat_delay` / `repeat_interval` | 0.42 / 0.032 | 按住连发的延迟和间隔（秒） |

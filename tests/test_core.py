@@ -120,6 +120,18 @@ class HubTest(unittest.TestCase):
         self.assertEqual(self.log[-1] if self.log[-1][0] == "up" else
                          [e for e in self.log if e[0] == "up"][-1], ("up", "backspace"))
 
+    def test_scroll_starts_immediately(self):
+        import threading
+        threading.Thread(target=self.h.scroll_pump, daemon=True).start()
+        self.h.handle(0x09)
+        time.sleep(0.03)             # 不再等一格发完（burst_gap）才开始滚
+        self.assertTrue(any(e[0] == "scroll" for e in self.log))
+        for _ in range(6):           # 同一格后续脉冲不叠加距离
+            self.h.handle(0x09)
+        time.sleep(1.2)
+        total = sum(e[1] for e in self.log if e[0] == "scroll")
+        self.assertAlmostEqual(total, self.h.CLICK_PX, delta=2)
+
 
 if __name__ == "__main__":
     unittest.main()

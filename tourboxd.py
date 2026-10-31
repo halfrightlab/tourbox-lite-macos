@@ -142,7 +142,7 @@ DEFAULT_CONFIG = {
         "pulses_per_click": 8,
         "burst_gap": 0.045,
         "tick": 0.008,
-        "decay": 0.06,
+        "decay": 0.12,
         "cap": 40,
         "boost_max": 1.8,
         "max_pending": 400,
@@ -590,17 +590,26 @@ class Hub:
     #   按脉冲算距离，同样转一格有时走 9px 有时走 117px——手感不稳定的根源。
     #   所以先把一次连发的脉冲攒起来，整格只算一次固定位移（click_px）。
     def add_pulse(self, direction):
-        """收到一个滚轮脉冲。direction: -1 向上，+1 向下"""
+        """
+        收到一个滚轮脉冲。direction: -1 向上，+1 向下
+        一格的第一个脉冲到达就立刻结算整格距离开始滚（不等这一格发完，
+        否则每格都有 burst_gap 的延迟，手感「反应慢」）；同一格后续脉冲只计数。
+        """
         with self.scroll_lock:
             now = time.time()
-            # 换向：先把上一格结掉，否则正反会相互抵消
-            if self.wheel_n and direction != self.wheel_dir:
-                self._commit_burst(now)
-            self.wheel_dir = direction
+            new_click = (not self.wheel_n or direction != self.wheel_dir
+                         or now - self.wheel_ts > self.BURST_GAP
+                         or self.wheel_n >= self.PULSES_PER_CLICK)
+            if new_click:
+                if self.wheel_n:
+                    self.stat_bursts.append(self.wheel_n)
+                    if len(self.stat_bursts) > 400:
+                        del self.stat_bursts[:200]
+                self.wheel_dir = direction
+                self.wheel_n = 0
+                self._commit_click(now)
             self.wheel_n += 1
             self.wheel_ts = now
-            if self.wheel_n >= self.PULSES_PER_CLICK:
-                self._commit_burst(now)
         self.scroll_wake.set()
 
     def add_scroll_px(self, px):
@@ -609,15 +618,8 @@ class Hub:
             self.scroll_pending = max(-lim, min(lim, self.scroll_pending + px))
         self.scroll_wake.set()
 
-    def _commit_burst(self, now):
-        """把攒下的这一格结算成距离。调用方必须已持有 scroll_lock。"""
-        n = self.wheel_n
-        if not n:
-            return
-        self.wheel_n = 0
-        self.stat_bursts.append(n)
-        if len(self.stat_bursts) > 400:
-            del self.stat_bursts[:200]
+    def _commit_click(self, now):
+        """结算一格的距离。调用方必须已持有 scroll_lock。"""
         if self.stat_last:
             self.stat_gaps.append(max(0.0, now - self.stat_last))
             if len(self.stat_gaps) > 400:
@@ -653,8 +655,7 @@ class Hub:
         inj = self.inj
         while True:
             with self.scroll_lock:
-                idle = (not self.wheel_n and abs(self.scroll_pending) < 0.5
-                        and not self.scroll_in_gesture)
+                idle = abs(self.scroll_pending) < 0.5 and not self.scroll_in_gesture
                 if idle:
                     self.scroll_wake.clear()
             if idle:
@@ -663,13 +664,10 @@ class Hub:
             n = 0
             ended = False
             with self.scroll_lock:
-                now = time.time()
-                if self.wheel_n and now - self.wheel_ts > self.BURST_GAP:
-                    self._commit_burst(now)
                 p = self.scroll_pending
                 if abs(p) < 0.5:
                     self.scroll_pending = 0.0
-                    ended = self.scroll_in_gesture and not self.wheel_n
+                    ended = self.scroll_in_gesture
                 else:
                     step = max(-self.SCROLL_CAP, min(self.SCROLL_CAP, p * self.SCROLL_DECAY))
                     self.scroll_pending = p - step
