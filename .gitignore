@@ -1,0 +1,10 @@
+# 个人配置（首次运行会按默认值自动生成）
+config.json
+mappings.json
+.tourbox.lock
+*.tmp*
+__pycache__/
+.venv/
+# 实验产物：编译出的二进制不入库
+tbhid
+.DS_Store
