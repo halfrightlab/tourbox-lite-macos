@@ -90,9 +90,10 @@ class KeyStats:
                 d = json.load(f)
             d.setdefault("keys", {})
             d.setdefault("hours", [0] * 24)
+            d.setdefault("buttons", {})
             return d
         except (OSError, ValueError):
-            return {"keys": {}, "hours": [0] * 24}
+            return {"keys": {}, "hours": [0] * 24, "buttons": {}}
 
     def _roll(self):
         """跨天时先把昨天写盘，再换成今天的文件。"""
@@ -121,13 +122,21 @@ class KeyStats:
             self.data["hours"][time.localtime().tm_hour] += 1
             self.dirty = True
 
+    def record_button(self, physical):
+        """TourBox 物理键被按（或转动一格）一次。只计数，不进小时分布（对应按键已经由 record 计过）。"""
+        with self.lock:
+            self._roll()
+            b = self.data["buttons"]
+            b[physical] = b.get(physical, 0) + 1
+            self.dirty = True
+
     # ---- 查询 ----
     def query(self, days=1):
         days = max(1, min(int(days), 90))
         with self.lock:
             self._roll()
             today = json.loads(json.dumps(self.data))
-        keys, hours, daily = {}, [0] * 24, []
+        keys, hours, daily, buttons = {}, [0] * 24, [], {}
         now = time.time()
         for i in range(days - 1, -1, -1):
             day = time.strftime("%Y-%m-%d", time.localtime(now - i * 86400))
@@ -141,6 +150,8 @@ class KeyStats:
                     total += c.get("kb", 0) + c.get("tb", 0)
                 for h, n in enumerate(d["hours"][:24]):
                     hours[h] += n
+                for p, n in d.get("buttons", {}).items():
+                    buttons[p] = buttons.get(p, 0) + n
             daily.append({"day": day, "total": total})
         top = sorted(({"label": l, **c} for l, c in keys.items()),
                      key=lambda x: x["kb"] + x["tb"], reverse=True)
@@ -153,6 +164,7 @@ class KeyStats:
             "top": top[:40],
             "hours": hours,
             "daily": daily,
+            "buttons": buttons,
         }
 
     # ---- 监听 ----

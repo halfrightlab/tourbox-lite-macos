@@ -133,5 +133,22 @@ class HubTest(unittest.TestCase):
         self.assertAlmostEqual(total, self.h.CLICK_PX, delta=2)
 
 
+class ButtonStatsTest(unittest.TestCase):
+    def test_counts_per_physical_button(self):
+        class FakeStats:
+            def __init__(self): self.buttons, self.keys = {}, []
+            def record_button(self, p): self.buttons[p] = self.buttons.get(p, 0) + 1
+            def record(self, label, src): self.keys.append((label, src))
+        h = make_hub()
+        h.stats = FakeStats()
+        h.handle(0x02); h.handle(0x82)                    # 横键按一下
+        for _ in range(8):                                 # 旋钮顺时针 8 个脉冲，分频 4 → 2 次
+            h.handle(0x44)
+        for _ in range(8):                                 # 滚轮向上一格
+            h.handle(0x49)
+        self.assertEqual(h.stats.buttons, {"horiz": 1, "knob_cw": 2, "scroll_up": 1})
+        self.assertIn(("scrollup", "tb"), h.stats.keys)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -153,6 +153,14 @@
   .hlab{display:flex;justify-content:space-between;font-size:10px;color:var(--faint);margin-top:4px}
   .legend{display:flex;gap:14px;font-size:11px;color:var(--faint);margin-top:12px}
   .legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:0}
+  .sub-hd{margin:18px 0 4px;font-size:12px;font-weight:600;color:var(--dim);letter-spacing:.4px}
+  .sub-hd span{font-weight:400;color:var(--faint);font-size:11px;margin-left:6px}
+  .brow{display:grid;grid-template-columns:76px 150px 1fr 56px;align-items:center;gap:10px;padding:5px 0}
+  .brow .bn{font-size:12.5px;white-space:nowrap}
+  .brow kbd{justify-self:start;padding:2px 7px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line);
+            font-size:11.5px;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .brow.zero{opacity:.45}
+  .bar .one{background:var(--accent)}
   .empty{padding:22px 0;text-align:center;color:var(--faint);font-size:12px}
 
   /* 提示条 */
@@ -168,6 +176,7 @@
     .stats{grid-column:auto}
     .nums{grid-template-columns:repeat(2,1fr)}
     .trow{grid-template-columns:18px 136px 1fr 46px}
+    .brow{grid-template-columns:64px 110px 1fr 46px}
     header{padding:12px 16px}
     .pill .port{display:none}
   }
@@ -431,6 +440,14 @@ function loadStats(){
         <span class="bar"><i class="kb" style="width:${x.kb/max*100}%"></i><i class="tbb" style="width:${x.tb/max*100}%"></i></span>
         <span class="ct">${fmt(n)}</span></div>`;
     }).join('');
+    const btn = d.buttons || {}, phys = (STATE && STATE.physical) || {};
+    const bmax = Math.max(1, ...Object.values(btn));
+    const brows = Object.keys(phys).sort((a,b)=>(btn[b]||0)-(btn[a]||0)).map(pid=>{
+      const n = btn[pid]||0, spec = specOf(pid, byteOf(pid)) || '未设置';
+      return `<div class="brow${n?'':' zero'}"><span class="bn">${esc(phys[pid].name)}</span>
+        <kbd title="${esc(spec)}">${esc(pretty(spec.toLowerCase()))}</kbd>
+        <span class="bar"><i class="one" style="width:${n/bmax*100}%"></i></span><span class="ct">${fmt(n)}</span></div>`;
+    }).join('');
     const hmax = Math.max(1, ...d.hours), nowH = new Date().getHours();
     box.innerHTML = `
       <div class="nums">
@@ -440,6 +457,8 @@ function loadStats(){
         <div class="num tb"><b>${fmt(d.tourbox)}</b><span>其中 TourBox</span></div>
       </div>
       ${rows ? `<div class="top">${rows}</div>` : '<div class="empty">还没有数据，正常用一会儿电脑再来看</div>'}
+      <div class="sub-hd">TourBox 按键<span>每个实体键用了几次 · 右边是它现在映射的键 · 旋钮按触发次数、滚轮按格计</span></div>
+      <div>${brows}</div>
       <div class="hours">${d.hours.map((n,h)=>`<i class="${statDays===1&&h===nowH?'now':''}" style="height:${n/hmax*100}%" title="${h} 点：${n} 次"></i>`).join('')}</div>
       <div class="hlab"><span>0 点</span><span>6</span><span>12</span><span>18</span><span>23 点</span></div>
       <div class="legend"><span><i style="background:var(--line-2)"></i>键盘</span><span><i style="background:var(--accent)"></i>TourBox</span>

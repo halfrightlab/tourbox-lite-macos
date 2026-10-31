@@ -595,7 +595,7 @@ class Hub:
     #   实测这个滚轮转一格会发 1~13 个脉冲（均值 5.59），波动近 13 倍。
     #   按脉冲算距离，同样转一格有时走 9px 有时走 117px——手感不稳定的根源。
     #   所以先把一次连发的脉冲攒起来，整格只算一次固定位移（click_px）。
-    def add_pulse(self, direction):
+    def add_pulse(self, direction, name=None):
         """
         收到一个滚轮脉冲。direction: -1 向上，+1 向下
         一格的第一个脉冲到达就立刻结算整格距离开始滚（不等这一格发完，
@@ -616,6 +616,8 @@ class Hub:
                 self._commit_click(now)
                 if self.stats:
                     self.stats.record("scrollup" if direction < 0 else "scrolldown", "tb")
+                    if name:
+                        self._count_button(name)
             self.wheel_n += 1
             self.wheel_ts = now
         self.scroll_wake.set()
@@ -769,9 +771,15 @@ class Hub:
             if down:
                 self._pulse(name)
         elif down:
+            self._count_button(name)
             self._press(name)
         else:
             self._release(name)
+
+    def _count_button(self, name):
+        """按物理键计数（转盘/滚轮按「格」或「次」算，不按原始脉冲算）。"""
+        if self.stats:
+            self.stats.record_button(self.mapping.get(name) or name)
 
     def _pulse(self, name):
         a = self.action_of(name)
@@ -784,7 +792,7 @@ class Hub:
         if a.kind == "scroll":
             # 滚动走自己的缓冲泵，不过注入限流，否则会误杀脉冲
             if a.dir:
-                self.add_pulse(a.dir)
+                self.add_pulse(a.dir, name)
             else:
                 self.add_scroll_px(a.px)
             return
@@ -792,6 +800,7 @@ class Hub:
         self.pulses[name] = self.pulses.get(name, 0) + 1
         if self.pulses[name] % div:
             return
+        self._count_button(name)
         if not self._rate_ok():
             return
         self.last_fire[name] = now
