@@ -53,6 +53,13 @@
   .btn:hover{background:var(--surface-2)}
   .btn:active{transform:scale(.98)}
   .btn.danger{color:var(--err)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:color-mix(in srgb,var(--accent) 88%,#000)}
+  .done{position:fixed;inset:0;z-index:30;display:grid;place-items:center;background:var(--bg)}
+  .done div{max-width:440px;padding:0 24px;text-align:center}
+  .done h2{font-size:20px;margin:0 0 10px}
+  .done p{color:var(--dim);margin:6px 0}
+  .done code{padding:2px 7px;border-radius:5px;background:var(--surface-2);border:1px solid var(--line)}
   .btn.danger:hover{border-color:color-mix(in srgb,var(--err) 45%,var(--line-2))}
 
   /* ---------- 主体 ---------- */
@@ -192,6 +199,7 @@
   <div class="brand"><div class="logo"><i></i></div><h1>TourBox 控制台</h1></div>
   <span class="pill" id="status"><span class="dot"></span><span id="st">连接中…</span><span class="port mono" id="port"></span></span>
   <span class="grow"></span>
+  <button class="btn primary" id="finish" title="键位定下来了：关掉网页和统计，只留驱动在后台">完成设置</button>
   <button class="btn danger" id="release" title="某个键卡住（比如 fn）时，点这里立即全部松开">释放所有按键</button>
 </header>
 
@@ -382,6 +390,17 @@ groupsEl.addEventListener('click', e=>{
 document.querySelectorAll('.pkey').forEach(el=>el.addEventListener('click', ()=>select(el.dataset.id, true)));
 document.getElementById('release').onclick = ()=>
   fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('已释放所有按键'));
+
+document.getElementById('finish').onclick = ()=>{
+  if(!confirm('完成设置，切换到轻量模式？\n\n之后只保留驱动在后台运行，按键映射照常生效；网页控制台和按键统计会关闭，不再占用端口。\n\n以后想再改键位，在终端里运行：./tourbox.sh setup')) return;
+  fetch('/api/finish',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>{
+    es.close();
+    const d = document.createElement('div');
+    d.className = 'done';
+    d.innerHTML = '<div><h2>已切换到轻量模式</h2><p>现在只有驱动在后台运行，按键映射照常生效。</p><p>这个页面可以关掉了。</p><p style="margin-top:18px">以后要改键位：在项目目录运行 <code>./tourbox.sh setup</code></p></div>';
+    document.body.appendChild(d);
+  }).catch(()=>toast('切换失败', true));
+};
 
 const flashAt = {};
 function onKey(d){

@@ -937,7 +937,14 @@ def main():
     _lock = acquire_single_instance()
     hub = Hub(args.port)
     hub.start()
-    print("[*] 驱动就绪，Ctrl+C 退出", flush=True)
+
+    def on_term(*_):
+        # launchd 停止/重启服务时发 SIGTERM：先松开按住的键再退，免得 fn 残留
+        hub.release_all()
+        os._exit(0)
+    import signal
+    signal.signal(signal.SIGTERM, on_term)
+    print("[*] 驱动就绪（无界面），Ctrl+C 退出", flush=True)
     try:
         while True:
             time.sleep(3600)

@@ -160,6 +160,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"ok": False, "error": "未知位置"}, 400)
             return self._json(HUB.set_learn(phys))
 
+        if self.path == "/api/finish":
+            self._json({"ok": True})
+            # 先把响应发出去再退出
+            threading.Timer(0.3, finish_setup).start()
+            return
+
         if self.path == "/api/release":
             HUB.release_all("手动释放")
             return self._json({"ok": True})
@@ -168,6 +174,38 @@ class Handler(BaseHTTPRequestHandler):
 
 
 HTML_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "console.html")
+HOME_DIR = os.path.expanduser("~/.tourbox")
+MODE_PATH = os.path.join(HOME_DIR, "mode")
+PORT_PATH = os.path.join(HOME_DIR, "console_port")   # 实际端口，tourbox.sh setup 据此打开页面
+
+
+def bind_server(port, tries=20):
+    """
+    从 port 开始找一个能用的端口。端口被别的程序占了就往后顺延，
+    全都占满就返回 None —— 控制台起不来也不能连累驱动，按键映射照常工作。
+    """
+    for p in range(port, port + tries):
+        try:
+            return ThreadingHTTPServer(("127.0.0.1", p), Handler), p
+        except OSError:
+            continue
+    return None, None
+
+
+def finish_setup():
+    """「完成设置」：写入轻量模式后退出，launchd 会按新模式只拉起驱动。"""
+    os.makedirs(HOME_DIR, exist_ok=True)
+    with open(MODE_PATH, "w") as f:
+        f.write("light\n")
+    print("[*] 完成设置：切换到轻量模式（只跑驱动）", flush=True)
+    HUB.release_all()
+    if STATS:
+        STATS.flush()
+    try:
+        os.remove(PORT_PATH)
+    except OSError:
+        pass
+    os._exit(0)
 
 
 def main():
@@ -201,8 +239,21 @@ def main():
     print(f"[*] 卡键守护：按住超过 {HUB.STUCK_RELEASE_SEC:g}s 无松开自动释放", flush=True)
     print(f"[*] 按住连发：{HUB.REPEAT_DELAY}s 后每 {HUB.REPEAT_INTERVAL}s 一次（修饰键不连发）", flush=True)
 
-    srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
+    srv, port = bind_server(PORT)
+    if srv is None:
+        print(f"[!] 端口 {PORT}-{PORT + 19} 都被占用，控制台没有启动；驱动照常运行", flush=True)
+        while True:
+            time.sleep(3600)
+    if port != PORT:
+        print(f"[!] 端口 {PORT} 被占用，控制台改用 {port}", flush=True)
+    PORT = port
     srv.daemon_threads = True
+    try:
+        os.makedirs(HOME_DIR, exist_ok=True)
+        with open(PORT_PATH, "w") as f:
+            f.write(str(PORT))
+    except OSError:
+        pass
     url = f"http://127.0.0.1:{PORT}/"
     print(f"[*] 控制台: {url}", flush=True)
     if not args.no_browser:

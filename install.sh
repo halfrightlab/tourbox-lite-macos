@@ -11,6 +11,8 @@ PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 PORT="${TOURBOX_PORT:-8777}"
 
 mkdir -p "$HOME_DIR/logs" "$HOME/Library/LaunchAgents"
+# 新装默认进入设置模式；重装时保留已有模式
+[ -f "$HOME_DIR/mode" ] || echo setup > "$HOME_DIR/mode"
 
 echo "→ 准备 Python 环境: $VENV"
 if [ ! -x "$VENV/bin/python3" ]; then
@@ -25,6 +27,14 @@ cat > "$HOME_DIR/run.sh" <<RUN
 # 由 install.sh 生成。日志超过 3MB 自动轮换。
 LOG="$HOME_DIR/logs/driver.log"
 if [ -f "\$LOG" ] && [ "\$(stat -f%z "\$LOG")" -gt 3000000 ]; then mv -f "\$LOG" "\$LOG.old"; fi
+# 运行模式（~/.tourbox/mode）：
+#   setup  驱动 + 网页控制台 + 按键统计（调键位阶段）
+#   light  只跑驱动，不开网页、不占端口、不统计（方案定下来之后）
+# 切换：./tourbox.sh setup | light
+MODE="\$(cat "$HOME_DIR/mode" 2>/dev/null || echo setup)"
+if [ "\$MODE" = "light" ]; then
+  exec "$VENV/bin/python3" "$REPO/tourboxd.py"
+fi
 exec "$VENV/bin/python3" "$REPO/webui.py" --no-browser --port $PORT
 RUN
 chmod +x "$HOME_DIR/run.sh"
@@ -61,7 +71,9 @@ tail -8 "$HOME_DIR/logs/driver.log" 2>/dev/null || true
 PYBIN="$("$VENV/bin/python3" -c 'import os,sys;print(os.path.realpath(sys.executable))')"
 cat <<MSG
 
-✅ 安装完成，控制台：http://127.0.0.1:$PORT/
+✅ 安装完成，现在是「设置模式」，控制台：http://127.0.0.1:$PORT/
+   键位调好、统计看够了，点控制台右上角「完成设置」或执行 ./tourbox.sh light，
+   之后只剩驱动在后台运行，网页和统计都会关掉。
 
 如果日志里显示「辅助功能(注入)=未授权」：
   系统设置 → 隐私与安全性 → 辅助功能 → 点 + → ⌘⇧G 粘贴下面的路径并勾选：
