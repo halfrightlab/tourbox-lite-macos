@@ -159,7 +159,8 @@ USB CDC 串口 `/dev/cu.usbmodemTourBox*`，115200 8N1，单字节事件流：
 | 文件 | 作用 |
 |---|---|
 | `tourboxd.py` | 驱动核心：协议解析、按键注入、平滑滚动、防卡键；也可以无界面运行，`--sniff` 只打印原始字节 |
-| `webui.py` | 驱动 + 本地控制台（常驻服务跑的就是它） |
+| `webui.py` | 驱动 + 本地控制台服务（常驻服务跑的就是它） |
+| `console.html` | 控制台页面，自动跟随系统浅色/深色 |
 | `calibrate.py` | 协议校准器，适配新型号时用 |
 | `install.sh` / `uninstall.sh` | 安装 / 卸载登录自启服务 |
 | `tests/` | 离线单元测试（用假注入器，不会真的发出按键）：`python3 -m unittest discover tests` |

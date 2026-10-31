@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TourBox 控制台</title>
+<style>
+  :root{
+    --bg:#f4f4f6; --surface:#ffffff; --surface-2:#f7f7f9; --line:#e4e4e9; --line-2:#d6d6dd;
+    --text:#1d1d1f; --dim:#6e6e76; --faint:#a1a1a8;
+    --accent:#0a84ff; --accent-soft:rgba(10,132,255,.12); --ok:#30b25a; --warn:#d98a00; --err:#e5484d;
+    --dev-body-1:#3a3a40; --dev-body-2:#232327; --dev-key:#141416; --dev-key-hi:#2c2c31; --dev-label:#8d8d96;
+    --shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.05);
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#141416; --surface:#1d1d20; --surface-2:#232327; --line:#2e2e33; --line-2:#3a3a40;
+      --text:#ececf0; --dim:#9a9aa3; --faint:#62626a;
+      --accent:#3d9bff; --accent-soft:rgba(61,155,255,.16);
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+      color-scheme:dark;
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:13px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
+       -webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+  button{font:inherit;color:inherit}
+  kbd,code,.mono{font-family:"SF Mono",ui-monospace,Menlo,monospace}
+
+  /* ---------- 顶栏 ---------- */
+  header{display:flex;align-items:center;gap:14px;padding:14px 24px;
+         background:color-mix(in srgb,var(--surface) 82%,transparent);
+         backdrop-filter:saturate(180%) blur(16px);-webkit-backdrop-filter:saturate(180%) blur(16px);
+         border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+        background:linear-gradient(145deg,#4a4a52,#1e1e22);box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+  .logo i{width:12px;height:12px;border-radius:50%;border:2px solid #cfd0d6;display:block}
+  .brand h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.2px}
+  .pill{display:inline-flex;align-items:center;gap:7px;padding:4px 10px 4px 9px;border-radius:999px;
+        background:var(--surface-2);border:1px solid var(--line);font-size:12px;color:var(--dim)}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--faint)}
+  .pill.on .dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
+  .pill.warn .dot{background:var(--warn)}
+  .pill .port{color:var(--faint);font-size:11px}
+  .grow{flex:1}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;
+       border:1px solid var(--line-2);background:var(--surface);font-size:12px;font-weight:500;
+       transition:background .15s,border-color .15s,transform .05s}
+  .btn:hover{background:var(--surface-2)}
+  .btn:active{transform:scale(.98)}
+  .btn.danger{color:var(--err)}
+  .btn.danger:hover{border-color:color-mix(in srgb,var(--err) 45%,var(--line-2))}
+
+  /* ---------- 主体 ---------- */
+  main{flex:1;display:grid;grid-template-columns:minmax(360px,1fr) minmax(420px,1.15fr);
+       gap:20px;padding:20px 24px 28px;max-width:1280px;width:100%;margin:0 auto}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow)}
+  .stage{position:sticky;top:78px;align-self:start;padding:28px 24px 20px;display:flex;flex-direction:column;align-items:center}
+  .stage svg{width:100%;max-width:470px;height:auto;overflow:visible}
+  .stage .hint{margin-top:10px;color:var(--faint);font-size:12px;text-align:center}
+  .live{margin-top:14px;min-height:30px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim)}
+  .live .k{padding:3px 9px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-weight:500}
+  .live .arrow{color:var(--faint)}
+
+  /* 设备图 */
+  .pkey{cursor:pointer;fill:url(#keyGrad);stroke:rgba(255,255,255,.06);stroke-width:1;
+        transition:fill .12s,filter .12s,stroke .12s}
+  .pkey:hover{fill:var(--dev-key-hi)}
+  .pkey.sel{stroke:var(--accent);stroke-width:2.2}
+  .pkey.hot{fill:var(--accent)!important;filter:drop-shadow(0 0 10px var(--accent))}
+  .dlabel{fill:var(--dev-label);font-size:10px;font-weight:500;pointer-events:none;letter-spacing:.3px}
+
+  /* 映射列表 */
+  .panel{padding:6px 0 10px}
+  .group{padding:14px 20px 4px;display:flex;align-items:baseline;gap:8px}
+  .group h2{margin:0;font-size:12px;font-weight:600;color:var(--dim);letter-spacing:.4px}
+  .group span{font-size:11px;color:var(--faint)}
+  .rows{padding:0 10px}
+  .row{display:grid;grid-template-columns:118px 1fr auto;align-items:center;gap:12px;
+       padding:8px 10px;border-radius:10px;transition:background .12s}
+  .row:hover{background:var(--surface-2)}
+  .row.sel{background:var(--accent-soft)}
+  .row.flash{animation:flash .5s}
+  @keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
+  .row .nm{display:flex;flex-direction:column;line-height:1.25;cursor:pointer}
+  .row .nm b{font-weight:500;font-size:13px}
+  .row .nm small{font-size:10.5px;color:var(--faint)}
+  .field{position:relative}
+  .field input{width:100%;height:32px;padding:0 10px;border-radius:8px;border:1px solid var(--line);
+               background:var(--surface-2);color:var(--text);font:12.5px "SF Mono",ui-monospace,Menlo,monospace;
+               outline:none;transition:border-color .15s,box-shadow .15s,background .15s}
+  .field input:hover{border-color:var(--line-2)}
+  .field input:focus{border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px var(--accent-soft)}
+  .field input.bad{border-color:var(--err);box-shadow:0 0 0 3px color-mix(in srgb,var(--err) 18%,transparent)}
+  .field input:disabled{opacity:.5}
+  .field .tag{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10.5px;
+              padding:1px 7px;border-radius:5px;background:var(--line);color:var(--dim);pointer-events:none}
+  .field .tag.fn{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+  .learn{height:30px;padding:0 10px;border-radius:7px;border:1px solid transparent;background:none;
+         color:var(--faint);font-size:12px;cursor:pointer;transition:all .15s}
+  .row:hover .learn{color:var(--dim);border-color:var(--line)}
+  .learn:hover{color:var(--accent)!important;border-color:var(--accent)!important}
+  .row.learning{background:color-mix(in srgb,var(--warn) 14%,transparent)}
+  .row.learning .learn{color:var(--warn);border-color:var(--warn)}
+
+  details.help{margin:10px 20px 6px;border-top:1px solid var(--line);padding-top:12px}
+  details.help summary{cursor:pointer;color:var(--dim);font-size:12px;font-weight:500;list-style:none}
+  details.help summary::before{content:"›";display:inline-block;margin-right:6px;transition:transform .15s}
+  details.help[open] summary::before{transform:rotate(90deg)}
+  .syntax{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;margin:12px 0 4px;font-size:12px;color:var(--dim)}
+  .syntax kbd{justify-self:start;padding:2px 7px;border-radius:5px;background:var(--surface-2);
+              border:1px solid var(--line);color:var(--text);font-size:11.5px}
+  .note{font-size:11.5px;color:var(--faint);margin:10px 0 4px}
+
+  /* 提示条 */
+  #toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;
+         padding:9px 16px;border-radius:10px;background:var(--text);color:var(--bg);font-size:12.5px;
+         box-shadow:0 8px 30px rgba(0,0,0,.25);transition:all .22s;pointer-events:none;z-index:20}
+  #toast.show{opacity:1;transform:translate(-50%,0)}
+  #toast.err{background:var(--err);color:#fff}
+
+  @media (max-width:880px){
+    main{grid-template-columns:1fr;padding:16px}
+    .stage{position:static}
+    header{padding:12px 16px}
+    .pill .port{display:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo"><i></i></div><h1>TourBox 控制台</h1></div>
+  <span class="pill" id="status"><span class="dot"></span><span id="st">连接中…</span><span class="port mono" id="port"></span></span>
+  <span class="grow"></span>
+  <button class="btn danger" id="release" title="某个键卡住（比如 fn）时，点这里立即全部松开">释放所有按键</button>
+</header>
+
+<main>
+  <section class="card stage">
+    <svg viewBox="0 0 420 360" id="dev" aria-label="TourBox 设备图">
+      <defs>
+        <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--dev-body-1)"/><stop offset="1" stop-color="var(--dev-body-2)"/>
+        </linearGradient>
+        <linearGradient id="keyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1c1c1f"/><stop offset="1" stop-color="#0f0f11"/>
+        </linearGradient>
+        <radialGradient id="knobGrad" cx=".4" cy=".35" r=".8">
+          <stop offset="0" stop-color="#3b3b41"/><stop offset="1" stop-color="#16161a"/>
+        </radialGradient>
+        <filter id="bodyShadow" x="-20%" y="-20%" width="140%" height="150%">
+          <feDropShadow dx="0" dy="14" stdDeviation="14" flood-opacity=".28"/>
+        </filter>
+      </defs>
+      <path d="M105 20 Q60 20 52 80 L44 230 Q40 300 105 315 L315 315 Q380 300 376 230 L368 80 Q360 20 315 20 Z"
+            fill="url(#bodyGrad)" filter="url(#bodyShadow)"/>
+      <path d="M105 21.5 Q62 21.5 53.5 80 L45.5 230" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1.5"/>
+
+      <rect class="pkey" data-id="scroll_up"   x="86" y="52" width="20" height="30" rx="10"/>
+      <rect class="pkey" data-id="scroll_down" x="86" y="82" width="20" height="30" rx="10"/>
+      <line x1="90" y1="82" x2="102" y2="82" stroke="#2a2a2f" stroke-width="1" pointer-events="none"/>
+      <rect class="pkey" data-id="horiz" x="150" y="44" width="90" height="22" rx="11"/>
+      <circle class="pkey" data-id="c1" cx="294" cy="60" r="14"/>
+      <circle class="pkey" data-id="c2" cx="322" cy="92" r="14"/>
+
+      <circle class="pkey" data-id="knob_cw" cx="195" cy="146" r="48" style="fill:url(#knobGrad)"/>
+      <circle cx="195" cy="146" r="48" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="6" stroke-dasharray="2 5" pointer-events="none"/>
+      <circle class="pkey" data-id="knob_click" cx="195" cy="146" r="25"/>
+
+      <circle class="pkey" data-id="tour"  cx="104" cy="228" r="20"/>
+      <rect   class="pkey" data-id="long"  x="226" y="196" width="28" height="58" rx="14"/>
+      <circle class="pkey" data-id="short" cx="292" cy="232" r="20"/>
+
+      <text class="dlabel" x="96"  y="40"  text-anchor="middle">滚轮</text>
+      <text class="dlabel" x="195" y="36"  text-anchor="middle">横键</text>
+      <text class="dlabel" x="294" y="38"  text-anchor="middle">C1</text>
+      <text class="dlabel" x="348" y="96">C2</text>
+      <text class="dlabel" x="195" y="212" text-anchor="middle">旋钮</text>
+      <text class="dlabel" x="104" y="266" text-anchor="middle">Tour</text>
+      <text class="dlabel" x="240" y="272" text-anchor="middle">长键</text>
+      <text class="dlabel" x="292" y="270" text-anchor="middle">短键</text>
+    </svg>
+    <div class="live" id="live"><span>按一下设备上的键，这里会显示触发了什么</span></div>
+  </section>
+
+  <section class="card panel">
+    <div id="groups"></div>
+    <details class="help">
+      <summary>映射写法</summary>
+      <div class="syntax">
+        <kbd>fn</kbd><span>按住 = 按住 Fn（按住说话），松手即松开</span>
+        <kbd>backspace</kbd><span>单键，按住会自动连发；也可用 return、space、escape、a、f5、left …</span>
+        <kbd>cmd+shift+4</kbd><span>组合键，按一下完整触发一次</span>
+        <kbd>hold:shift+space</kbd><span>组合键，按住期间保持按下</span>
+        <kbd>volumeup</kbd><span>媒体键：volumedown、mute、playpause、next、previous、brightnessup …</span>
+        <kbd>scrollup</kbd><span>平滑滚动（滚轮用），scrolldown 向下</span>
+        <kbd>double:fn</kbd><span>连按两下</span>
+      </div>
+      <div class="note">回车保存并立即生效；清空后回车 = 取消映射。旋钮、滚轮转动没有「松开」信号，别映射成 fn 这类按住式按键。</div>
+    </details>
+  </section>
+</main>
+
+<datalist id="suggest">
+  <option value="fn"><option value="backspace"><option value="return"><option value="space"><option value="escape">
+  <option value="tab"><option value="cmd+c"><option value="cmd+v"><option value="cmd+x"><option value="cmd+z">
+  <option value="cmd+shift+z"><option value="cmd+s"><option value="cmd+shift+4"><option value="cmd+tab">
+  <option value="left"><option value="right"><option value="up"><option value="down">
+  <option value="scrollup"><option value="scrolldown"><option value="volumeup"><option value="volumedown">
+  <option value="mute"><option value="playpause"><option value="next"><option value="previous">
+  <option value="hold:shift+space"><option value="double:fn">
+</datalist>
+<div id="toast"></div>
+
+<script>
+let STATE = null;
+let selected = null;
+const groupsEl = document.getElementById('groups');
+const GROUPS = [
+  {title:'按键', sub:'按住式 · 支持长按', ids:['horiz','tour','long','short','c1','c2','scroll_click','knob_click']},
+  {title:'旋钮与滚轮', sub:'转动式 · 每格触发', ids:['knob_cw','knob_ccw','scroll_up','scroll_down']},
+];
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let toastT;
+function toast(text, err){
+  const t = document.getElementById('toast');
+  t.textContent = text; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastT); toastT = setTimeout(()=>t.className = '', err ? 3200 : 1800);
+}
+
+function byteOf(pid){
+  for(const [b,p] of Object.entries(STATE.mapping)) if(p===pid) return b;
+  return null;
+}
+function specOf(pid, byte){
+  const m = STATE.config.map || {};
+  return m[pid] || (byte ? m[byte] : '') || '';
+}
+function tagOf(spec){
+  const s = spec.toLowerCase();
+  if(!s) return '';
+  if(s==='fn') return '<span class="tag fn">按住说话</span>';
+  if(s.startsWith('scroll')) return '<span class="tag">平滑滚动</span>';
+  if(s.startsWith('hold:')) return '<span class="tag">按住</span>';
+  if(s.startsWith('double:')) return '<span class="tag">双击</span>';
+  return '';
+}
+
+function render(){
+  if(!STATE) return;
+  const f = document.activeElement;
+  if(f && f.tagName==='INPUT' && groupsEl.contains(f)) return;   // 正在输入时不重绘
+  groupsEl.innerHTML = GROUPS.map(g => `
+    <div class="group"><h2>${g.title}</h2><span>${g.sub}</span></div>
+    <div class="rows">${g.ids.filter(id=>STATE.physical[id]).map(pid=>{
+      const byte = byteOf(pid), spec = specOf(pid, byte);
+      return `<div class="row${selected===pid?' sel':''}" data-pid="${pid}">
+        <div class="nm"><b>${esc(STATE.physical[pid].name)}</b><small class="mono">${esc(byte||'未识别')}</small></div>
+        <div class="field"><input list="suggest" spellcheck="false" autocomplete="off" value="${esc(spec)}"
+             placeholder="${byte?'未设置':'先点「识别」'}" data-pid="${pid}" ${byte?'':'disabled'}>${tagOf(spec)}</div>
+        <button class="learn" data-learn="${pid}" title="点一下，再按设备上对应的实体键">识别</button>
+      </div>`;}).join('')}</div>`).join('');
+  document.querySelectorAll('.pkey').forEach(el=>el.classList.toggle('sel', el.dataset.id===selected
+      || (selected==='knob_ccw' && el.dataset.id==='knob_cw')));
+}
+
+function select(pid, scroll){
+  selected = pid; render();
+  const r = document.querySelector(`.row[data-pid="${pid}"]`);
+  if(r && scroll) r.scrollIntoView({block:'center', behavior:'smooth'});
+}
+
+function save(input){
+  const pid = input.dataset.pid, byte = byteOf(pid);
+  // 物理键名下有单独映射就写物理键名，否则写字节名（兼容旧配置）
+  const key = (STATE.config.map||{})[pid] !== undefined ? pid : (byte || pid);
+  const spec = input.value.trim();
+  if(spec === specOf(pid, byte)) return;
+  fetch('/api/map',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:key, spec})})
+    .then(r=>r.json()).then(res=>{
+      if(!res.ok){ input.classList.add('bad'); toast('没保存：'+res.error, true); return; }
+      input.classList.remove('bad');
+      toast(`${STATE.physical[pid].name} → ${res.spec || '已取消映射'}`);
+      input.blur(); load();
+    });
+}
+
+groupsEl.addEventListener('keydown', e=>{
+  if(e.target.tagName!=='INPUT') return;
+  if(e.key==='Enter') save(e.target);
+  if(e.key==='Escape'){ e.target.classList.remove('bad'); e.target.blur(); render(); }
+});
+groupsEl.addEventListener('focusin', e=>{ if(e.target.dataset.pid){ selected = e.target.dataset.pid;
+  document.querySelectorAll('.row').forEach(r=>r.classList.toggle('sel', r.dataset.pid===selected)); } });
+groupsEl.addEventListener('click', e=>{
+  const b = e.target.closest('[data-learn]');
+  if(b){
+    const pid = b.dataset.learn;
+    fetch('/api/learn',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({physical:pid})})
+      .then(()=>{
+        document.querySelectorAll('.row').forEach(r=>r.classList.remove('learning'));
+        b.closest('.row').classList.add('learning');
+        toast(`请按下设备上的「${STATE.physical[pid].name}」`);
+      });
+    return;
+  }
+  const nm = e.target.closest('.nm');
+  if(nm) select(nm.parentElement.dataset.pid);
+});
+document.querySelectorAll('.pkey').forEach(el=>el.addEventListener('click', ()=>select(el.dataset.id, true)));
+document.getElementById('release').onclick = ()=>
+  fetch('/api/release',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'}).then(()=>toast('已释放所有按键'));
+
+const flashAt = {};
+function onKey(d){
+  const pid = d.physical;
+  if(!pid || !d.down) return;
+  const now = Date.now();
+  if(flashAt[pid] && now - flashAt[pid] < 120) return;    // 节流，防转盘连发打爆渲染
+  flashAt[pid] = now;
+  const el = document.querySelector(`.pkey[data-id="${pid}"]`) || (pid==='knob_ccw' && document.querySelector('.pkey[data-id="knob_cw"]'));
+  if(el){ el.classList.add('hot'); setTimeout(()=>el.classList.remove('hot'), 160); }
+  const info = STATE && STATE.physical[pid];
+  if(info){
+    const spec = specOf(pid, d.byte_name) || '未设置';
+    document.getElementById('live').innerHTML = `<span>${esc(info.name)}</span><span class="arrow">→</span><span class="k mono">${esc(spec)}</span>`;
+    const row = document.querySelector(`.row[data-pid="${pid}"]`);
+    if(row){ row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash'); }
+  }
+}
+
+const STATUS = {connected:['已连接','on'], reconnecting:['重连中…','warn'], waiting:['等待设备接入','warn'],
+                busy:['串口被占用 · 请退出 TourBox Console','warn'], starting:['启动中…','']};
+function load(){
+  fetch('/api/state').then(r=>r.json()).then(s=>{
+    STATE = s; render();
+    const [text, cls] = STATUS[s.status] || [s.status, ''];
+    document.getElementById('status').className = 'pill ' + cls;
+    document.getElementById('st').textContent = text;
+    document.getElementById('port').textContent = s.status==='connected' && s.port ? s.port.replace('/dev/cu.','') : '';
+  });
+}
+load();
+setInterval(()=>{ if(!document.hidden) load(); }, 15000);
+
+const es = new EventSource('/api/events');
+es.onmessage = ev=>{
+  const d = JSON.parse(ev.data);
+  if(d.type==='key') onKey(d);
+  if(d.type==='learned'){ toast(`已绑定：${(STATE.physical[d.physical]||{}).name}`); load(); }
+  if(d.type==='status') load();
+  if(d.type==='notice') toast(d.text);
+};
+</script>
+</body>
+</html>
