@@ -1,14 +1,20 @@
 # TourBox Lite · macOS 全局按键映射驱动
 
-把 TourBox Lite 当成**全局快捷键盘**用：每个按钮、旋钮、滚轮都可以映射成任意按键、组合键、媒体键或平滑滚动，在**所有应用**里生效。官方 TourBox Console 只对剪映、达芬奇、Photoshop 这类指定软件生效，这个驱动没有这个限制。
+> 一块原本只会在剪映和 Photoshop 里上班的 TourBox，现在全 Mac 打工。
 
-最初做它是为了一件事：**按住 TourBox 上的一个键说话，松手结束**，代替按住键盘左下角 Fn 键的语音输入。
+TourBox Lite 是个好东西，可惜官方驱动只在剪映、达芬奇、Photoshop 这些「指定单位」里干活，一出门就失业。这个驱动给它办了张全 Mac 通行证：**每个按钮、旋钮、滚轮都能映射成任意按键、组合键、媒体键或平滑滚动，在所有应用里生效。**
 
-> 非官方项目，与 TourBox Tech Inc. 无关。协议是对设备串口数据做黑盒实测得到的，没有使用官方代码。
+它最初只为一件小事而生：**按住 TourBox 说话，松手结束**。再也不用把手指伸到键盘左下角，摸索着按住那个小小的 Fn 键。后来顺手做了平滑滚动、按住连发、可视化控制台，还给它装了个「记账本」：帮你统计每天到底按了哪些键，最值得把什么放到 TourBox 上。
+
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-Apple%20Silicon-black?style=flat-square&logo=apple)](#适配性谁能用谁暂时不行)
+[![Python](https://img.shields.io/badge/python-3.9%2B-3776AB?style=flat-square&logo=python&logoColor=white)](requirements.txt)
+
+> 非官方项目，与 TourBox Tech Inc. 无关。协议是对设备串口数据做黑盒实测得到的，没有用到任何官方代码。
 
 ![控制台](docs/console.jpg)
 
-## 功能
+## 它能干什么
 
 - **全局映射**：单键、组合键（`cmd+shift+4`）、修饰键按住（`fn`）、媒体键、双击
 - **按住说话**：把一个键映射为 `fn`，按住 = 按住 Fn，松手 = 松开
@@ -20,7 +26,7 @@
 - **两种运行模式**：调键位时用「设置模式」（驱动 + 控制台 + 统计），方案定下来就切到「轻量模式」，只剩驱动，不开网页、不占端口（见下文「运行模式」）
 - **常驻运行**：作为 launchd 登录项运行，崩溃后自动拉起；设备拔掉再插上会自动重连
 
-## 适配性
+## 适配性：谁能用，谁暂时不行
 
 ### 硬件 / 系统
 
@@ -39,7 +45,7 @@
 | **微信输入法（WeType）** | ❌ 暂不支持 | 原因见下文 |
 | macOS 自带听写 | ❓ 未测试 | 走系统快捷键，理论上可以触发 |
 
-#### 为什么微信输入法暂时不行
+#### 为什么微信输入法暂时不行（不是不想，是够不着）
 
 macOS 上的按键事件分两层：
 
@@ -66,9 +72,9 @@ macOS 上的按键事件分两层：
 
 普通按键、组合键（复制粘贴、截图、撤销等）、方向键在所有应用里都能用。平滑滚动在浏览器、访达、大多数原生应用里表现接近触控板。少数自己处理滚轮的应用（比如部分游戏、远程桌面）可能会忽略像素级滚动。
 
-## 安装
+## 安装：三行命令
 
-前提：**先退出 TourBox Console**，它会独占串口，不退出会报 `Resource busy`。
+前提：**先退出官方的 TourBox Console**。它会独占串口，两个驱动抢一台设备，结局只会是 `Resource busy`。
 
 ```bash
 git clone https://github.com/halfrightlab/tourbox-lite-macos.git
@@ -123,7 +129,7 @@ python3 tourboxd.py       # 无界面
 
 > 两种模式内存差不多（实测都在 65MB 左右，大头是 Python 和系统框架本身），空闲时 CPU 都接近 0。轻量模式省掉的主要是一个本地网页服务和按键监听，好处是更简单、少一个端口、不再统计按键。
 
-## 映射写法
+## 映射写法：想按什么就写什么
 
 在控制台的输入框里填写，回车立即生效。也可以直接编辑 `config.json`（首次运行时自动生成）。
 
@@ -206,7 +212,9 @@ TourBox 只有 12 个控件，放什么最划算，不该靠感觉猜。网上�
 - 资源占用：每次按键多一次计数，每分钟最多写一次小文件，实测对 CPU 和内存没有可见影响
 - 权限：需要「输入监控」。已经给了辅助功能权限的话通常已经够用；日志里看到 `输入监控(统计)=未授权` 且统计一直是 0，就去 系统设置 → 隐私与安全性 → 输入监控 里勾选同一个 python3
 
-## 协议（TourBox Lite 实测）
+## 通信协议（TourBox Lite 实测）
+
+给想适配别的型号、或者单纯好奇的人：
 
 USB CDC 串口 `/dev/cu.usbmodemTourBox*`，115200 8N1，单字节事件流：
 
@@ -227,22 +235,33 @@ USB CDC 串口 `/dev/cu.usbmodemTourBox*`，115200 8N1，单字节事件流：
 | 文件 | 作用 |
 |---|---|
 | `tourboxd.py` | 驱动核心：协议解析、按键注入、平滑滚动、防卡键；也可以无界面运行，`--sniff` 只打印原始字节 |
-| `webui.py` | 驱动 + 本地控制台服务（常驻服务跑的就是它） |
+| `webui.py` | 驱动 + 本地控制台服务（设置模式下常驻的就是它；轻量模式只跑 `tourboxd.py`） |
 | `keystats.py` | 按键统计（只读监听，只记次数） |
 | `console.html` | 控制台页面，自动跟随系统浅色/深色 |
 | `calibrate.py` | 协议校准器，适配新型号时用 |
 | `install.sh` / `uninstall.sh` | 安装 / 卸载登录自启服务 |
 | `tourbox.sh` | 切换运行模式：`setup` / `light` / `status` |
 | `tests/` | 离线单元测试（用假注入器，不会真的发出按键）：`python3 -m unittest discover tests` |
-| `experiments/hidtest.swift` | 虚拟 HID 键盘实验（失败记录，留作参考） |
+| `experiments/hidtest.swift` | 虚拟 HID 键盘实验（一次光荣的失败，留着给后来人避坑） |
 
-## 故障排查
+## 出问题了？
 
 - **按了没反应**：看 `~/.tourbox/logs/driver.log`，确认有 `辅助功能(注入)=已授权` 和 `已连接`
 - **Resource busy**：执行 `pkill -f "TourBox Console"`
 - **某个键卡住了（系统输入错乱）**：点控制台右上角「释放所有按键」，或者直接拔掉 TourBox，驱动会自动松开所有键
 - **重启驱动**：`launchctl kickstart -k gui/$(id -u)/com.tourbox.driver`
 
-## License
+## 贡献者
 
-MIT
+| | 谁 | 干了什么 |
+|---|---|---|
+| 🧑‍🔬 | [半对实验室 halfrightlab](https://github.com/halfrightlab) | 出主意、拍板、上手实测、背锅 |
+| 🤖 | [Claude](https://github.com/claude)（Anthropic） | 写代码、重构、写文档 |
+| 🤖 | [Codex / ChatGPT](https://github.com/codex)（OpenAI） | 编程助手 |
+| 🤖 | WorkBuddy | 最早的协议逆向和驱动原型 |
+
+欢迎提 issue 和 PR，尤其是 TourBox Neo / Elite 的实测数据。
+
+## 许可协议
+
+[Apache License 2.0](LICENSE)。可以自由使用、修改、商用；再分发时请保留 [NOTICE](NOTICE) 里的署名。
