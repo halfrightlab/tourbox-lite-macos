@@ -133,6 +133,27 @@ class HubTest(unittest.TestCase):
         self.assertAlmostEqual(total, self.h.CLICK_PX, delta=2)
 
 
+class DeviceInitTest(unittest.TestCase):
+    def test_sends_commands_in_order_and_discards_reply(self):
+        class FakeSerial:
+            def __init__(self):
+                self.written = []
+                self.pending = [bytes.fromhex("04e05ebbcfbcc7429eabcc37336cf70b00000002000303010000")]
+            def write(self, b): self.written.append(b)
+            def read(self, n):
+                time.sleep(0.01)
+                return self.pending.pop() if self.pending else b""
+        h = make_hub()
+        ser = FakeSerial()
+        handled = []
+        h.handle = handled.append
+        tourboxd.init_device(ser)
+        self.assertEqual(ser.written, [tourboxd.DEVICE_HELLO, tourboxd.DEVICE_CONFIG])
+        self.assertEqual(len(tourboxd.DEVICE_CONFIG), 94)
+        self.assertEqual(ser.pending, [])          # 应答已被读走
+        self.assertEqual(handled, [])              # 且没有进入按键处理
+
+
 class ButtonStatsTest(unittest.TestCase):
     def test_counts_per_physical_button(self):
         class FakeStats:

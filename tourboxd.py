@@ -417,6 +417,30 @@ def open_serial(port):
                          rtscts=False, dsrdtr=False)
 
 
+# 上电后设备只报按键，旋钮和滚轮的转动要等收到这两条命令才会上报。
+# 配置内容是官方 TourBox Console 连接时发送的原始字节。
+DEVICE_HELLO = bytes.fromhex("5500078894001afe")
+DEVICE_CONFIG = bytes.fromhex(
+    "b5 00 5d 04 08 05 08 06 08 07 08 08 08 09 08 0b 08 0c 08 0d 08 0e 08 0f "
+    "08 26 08 27 08 28 08 29 08 3b 08 3c 08 3d 08 3e 08 3f 08 40 08 41 08 42 "
+    "08 43 08 44 08 45 08 46 08 47 08 48 08 49 08 4a 08 4b 08 4c 08 4d 08 4e "
+    "08 4f 08 50 08 51 08 52 08 53 08 54 08 a8 08 a9 08 aa 08 ab 08 fe "
+)
+INIT_REPLY_WAIT = 0.6
+
+
+def init_device(ser):
+    """
+    发送初始化命令，并丢弃这段时间收到的所有字节。
+    设备的应答是一串任意字节，绝不能交给 handle()，否则会被当成按键注入。
+    """
+    ser.write(DEVICE_HELLO)
+    end = time.time() + INIT_REPLY_WAIT
+    while time.time() < end:
+        ser.read(64)
+    ser.write(DEVICE_CONFIG)
+
+
 # ---------- 驱动中枢 ----------
 class Hub:
     """串口事件中枢：解析字节 → 注入按键，同时把事件推给界面。"""
@@ -721,6 +745,7 @@ class Hub:
             print(f"[*] 已连接 {port}", flush=True)
             self._set_status("connected")
             try:
+                init_device(self.ser)
                 while True:
                     data = self.ser.read(64)
                     for b in data:
